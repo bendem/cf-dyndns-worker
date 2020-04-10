@@ -13,33 +13,45 @@ function response(obj, status = 200) {
   })
 }
 
-async function handleUpdate(ip, existingRecord) {
+async function dnsRecords(url, method, body = null) {
+  return await fetch(`${API}/zones/${CF_ZONE}/${url}`, {
+    method,
+    headers: {
+      'authorization': 'Bearer ' + CF_TOKEN,
+      'content-type': 'application/json',
+    },
+    body
+  });
+}
+
+async function handleUpdate(type, ip, existingRecord) {
   if (ip && existingRecord) {
     if (existingRecord.content === ip) {
       return;
     }
-    console.log(`updating record from ${existingRecord.content} to ${ip}`);
+
     // UPDATE
+    console.log(`updating record from ${existingRecord.content} to ${ip}`);
+    await dnsRecords(`dns_records/${existingRecord.id}`, 'PATCH', {
+      content: ip,
+    });
+
   } else if (ip && !existingRecord) {
     // CREATE
-    const cfResponse = await fetch(`${API}/zones/${CF_ZONE}/dns_records`, {
-      method: 'POST',
-      headers: {
-        'authorization': 'Bearer ' + CF_TOKEN,
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        type: 'A',
-        name: DOMAIN,
-        content: ip,
-        ttl: 1,
-        proxied: true,
-      })
-    });
     console.log(`creating record with ${ip}`, await cfResponse.json());
+    await dnsRecords(`dns_records`, 'POST', {
+      type,
+      name: DOMAIN,
+      content: ip,
+      ttl: 1,
+      proxied: true,
+    });
+
   } else if (!ip && existingRecord) {
     // DELETE
     console.log(`deleting record`);
+    await dnsRecords(`dns_records/${existingRecord.id}`, 'DELETE');
+
   } else {
     console.log('doing nothing', ip, existingRecord, DOMAIN)
   }
@@ -88,8 +100,8 @@ async function handleRequest(request) {
 
   console.log(cfResponseObject);
 
-  await handleUpdate(ipv4, existing4Record);
-  await handleUpdate(ipv6, existing6Record);
+  await handleUpdate('A', ipv4, existing4Record);
+  await handleUpdate('AAAA', ipv6, existing6Record);
 
 
   return response({ success: true })
