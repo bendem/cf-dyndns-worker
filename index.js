@@ -4,11 +4,12 @@ addEventListener('fetch', event => {
 
 const API = 'https://api.cloudflare.com/client/v4';
 
-function response(obj) {
+function response(obj, status = 200) {
   return new Response(JSON.stringify(obj), {
     headers: {
       'content-type': 'application/json'
-    }
+    },
+    status,
   })
 }
 
@@ -56,7 +57,7 @@ async function handleRequest(request) {
   const password = params.get('password')
 
   if (password !== PASSWORD) {
-    return response({ success: false, errors: ['invalid password'] });
+    return response({ success: false, errors: ['invalid password'] }, 401);
   }
 
   const cfResponse = await fetch(`${API}/zones/${CF_ZONE}/dns_records`, {
