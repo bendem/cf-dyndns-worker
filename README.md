@@ -24,3 +24,8 @@ Next up, you point your script to that URL using the following get parameters:
 * `ipv4` (the new ipv4)
 * `ipv6` (the new ipv6)
 * `password` (the password you chose in the step above)
+
+
+## Notes
+
+I recommend setting the `DOMAIN` secret to a random subdomain and then pointing a CloudFlare proxied CNAME to it. That way, it is harder to find out what your home IP is.
