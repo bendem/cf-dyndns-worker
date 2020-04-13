@@ -20,11 +20,12 @@ async function dnsRecords(url, method, body = null) {
       'authorization': 'Bearer ' + CF_TOKEN,
       'content-type': 'application/json',
     },
-    body
+    body: body === null ? null : JSON.stringify(body),
   });
 }
 
 async function handleUpdate(type, ip, existingRecord) {
+  let cfResponse = null;
   if (ip && existingRecord) {
     if (existingRecord.content === ip) {
       return;
@@ -32,14 +33,14 @@ async function handleUpdate(type, ip, existingRecord) {
 
     // UPDATE
     console.log(`updating record from ${existingRecord.content} to ${ip}`);
-    await dnsRecords(`dns_records/${existingRecord.id}`, 'PATCH', {
+    cfResponse = await dnsRecords(`dns_records/${existingRecord.id}`, 'PATCH', {
       content: ip,
     });
 
   } else if (ip && !existingRecord) {
     // CREATE
-    console.log(`creating record with ${ip}`, await cfResponse.json());
-    await dnsRecords(`dns_records`, 'POST', {
+    console.log(`creating record with ${ip}`);
+    cfResponse = await dnsRecords(`dns_records`, 'POST', {
       type,
       name: DOMAIN,
       content: ip,
@@ -50,19 +51,38 @@ async function handleUpdate(type, ip, existingRecord) {
   } else if (!ip && existingRecord) {
     // DELETE
     console.log(`deleting record`);
-    await dnsRecords(`dns_records/${existingRecord.id}`, 'DELETE');
+    cfResponse = await dnsRecords(`dns_records/${existingRecord.id}`, 'DELETE');
 
   } else {
     console.log('doing nothing', ip, existingRecord, DOMAIN)
   }
+
+  if (!cfResponse) {
+    return
+  }
+
+  const cfResponseObject = await cfResponse.json();
+  console.log(cfResponseObject);
+  if (cfResponseObject.success !== true) {
+    return cfResponseObject.errors;
+  }
 }
 
-/**
- * Respond with hello worker text
- * @param {Request} request
- */
 async function handleRequest(request) {
-  const params = new URL(request.url).searchParams
+  const requestUrl = new URL(request.url);
+  if (requestUrl.pathname === '/current-ip') {
+    return response({
+      ip: request.headers.get('cf-connecting-ip')
+    })
+  }
+
+  if (requestUrl.pathname !== '/dyndns') {
+    return response({
+      success: false
+    }, 404)
+  }
+
+  const params = requestUrl.searchParams
   // https://<url>?ipv4=<ipaddr>&ipv6=<ip6addr>&password=<pass>
   const ipv4 = params.get('ipv4')
   const ipv6 = params.get('ipv6')
@@ -100,9 +120,20 @@ async function handleRequest(request) {
 
   console.log(cfResponseObject);
 
-  await handleUpdate('A', ipv4, existing4Record);
-  await handleUpdate('AAAA', ipv6, existing6Record);
+  const v4Errors = await handleUpdate('A', ipv4, existing4Record);
+  const v6Errors = await handleUpdate('AAAA', ipv6, existing6Record);
+
+  const errors = {}
+  let success = true
+  if (v4Errors) {
+    success = false
+    errors.ipv4 = v4Errors
+  }
+  if (v6Errors) {
+    success = false
+    errors.ipv6 = v6Errors
+  }
 
 
-  return response({ success: true })
+  return response({ success, errors })
 }
