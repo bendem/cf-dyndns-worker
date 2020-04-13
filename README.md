@@ -4,6 +4,7 @@ With me using CloudFlare and CloudFlare providing free workers, why would I both
 
 This is what I came up with.
 
+
 ## Setup
 
 You need wrangler to set this up.
@@ -19,13 +20,16 @@ You'll also need to create a few secrets (`wrangler secret put [-e prod] <NAME>`
 wrangler publish -e prod
 ```
 
-Next up, you point your script to that URL using the following get parameters:
+### Setup notes
 
-* `ipv4`: the new ipv4
-* `ipv6`: the new ipv6
-* `password`: the password you chose in the step above
+I recommend setting the `DOMAIN` secret to a random sub domain and then pointing a CloudFlare proxied CNAME to it. That way, it is harder to find out what your home IP is.
 
 
-## Notes
+## Routes
 
-I recommend setting the `DOMAIN` secret to a random subdomain and then pointing a CloudFlare proxied CNAME to it. That way, it is harder to find out what your home IP is.
+* `/dyndns`: the URL you should point your script to. Accepts the following get parameters:
+  * `ipv4`: the new IPv4
+  * `ipv6`: the new IPv6
+  * `password`: the password you chose in the step above
+* `/current-ip`: returns the IP of the caller (use `curl -4` or `curl -6` to make sure you get the right IP)
+  * Note that the IPv6 returned here is not necessarily the IP of your router since NATing is not always used with IPv6
